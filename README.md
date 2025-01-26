@@ -1,0 +1,2 @@
+# WhiteBoard
+A collaborative whiteboard
