@@ -105,9 +105,29 @@ const cursorForPosition = position => {
   }
 };
 
+const useHistory = initialState => {
+  const [index, setIndex] = useState(0);
+  const [history, setHistory] = useState([initialState]);
 
+  const setState = (action, overwrite = false) => {
+    const newState = typeof action === "function" ? action(history[index]) : action;
+    if (overwrite) {
+      const historyCopy = [...history];
+      historyCopy[index] = newState;
+      setHistory(historyCopy);
+    } else {
+      const updatedState = [...history].slice(0, index + 1);
+      setHistory([...updatedState, newState]);
+      setIndex(prevState => prevState + 1);
+    }
+  };
+  const undo = () => index > 0 && setIndex(prevState => prevState - 1);
+  const redo = () => index < history.length - 1 && setIndex(prevState => prevState + 1);
+
+  return [history[index], setState, undo, redo];
+};
 function App() {
-  const [elements, setElements] = useState([]);
+  const [elements, setElements, undo, redo] = useHistory([]);
   const [action, setAction] = useState('none');
   const [tool, setTool] = useState("line");
   const [selectedElement, setSelectedElement] = useState(null);
@@ -119,7 +139,6 @@ function App() {
     const roughCanvas = rough.canvas(canvas);
 
     elements.forEach((element) => {
-      console.log(element.x1, element.y1, element.x2, element.y2, element.type);
       roughCanvas.draw(element.roughElement);
     });
   }, [elements]);
@@ -129,7 +148,7 @@ function App() {
     );
     const elementsCopy = [...elements];
     elementsCopy[idx] = updatedElement;
-    setElements(elementsCopy);
+    setElements(elementsCopy, true);
   }
 
   function resizeObject(element, x, y) {
@@ -164,6 +183,7 @@ function App() {
           offsetX: clientX - elem.x1,
           offsetY: clientY - elem.y1,
         });
+        setElements(prev => prev);
         if (elem.position === 'on' || elem.position === 'inside') {
           setAction('moving');
         } else {
@@ -204,23 +224,18 @@ function App() {
   };
 
   const handleMouseUp = () => {
-    const idx = elements.length - 1;
-    const { id, type } = elements[idx];
-    if (action === 'drawing') {
-      const { x1, x2, y1, y2 } = readjustingCoordinates(elements[idx]);
-      updateEle(id, x1, y1, x2, y2, type);
+    if (selectedElement) {
+      const idx = selectedElement.id;
+      const { id, type } = elements[idx];
+      if (action === 'drawing') {
+        const { x1, x2, y1, y2 } = readjustingCoordinates(elements[idx]);
+        updateEle(id, x1, y1, x2, y2, type);
+      }
     }
     setAction('none');
     setSelectedElement(null);
   };
 
-  const undo = () => {
-
-  };
-
-  const redo = () => {
-
-  };
   const clearcanvas = () => {
     const canvas = document.getElementById('canvas');
     const context = canvas.getContext('2d');
